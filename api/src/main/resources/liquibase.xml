@@ -84,7 +84,7 @@
 
         <!-- Add unique index for name -->
         <sql>
-            CREATE UNIQUE INDEX name_UNIQUE ON appointment_service (name);
+            CREATE UNIQUE INDEX appointment_service_name_UNIQUE ON appointment_service (name);
         </sql>
     </changeSet>
 
@@ -204,55 +204,57 @@
 
         <sql>
             CREATE TABLE IF NOT EXISTS patient_appointment (
-                patient_appointment_id SERIAL PRIMARY KEY,
-                provider_id INT NULL,
-                appointment_number VARCHAR(50) NOT NULL,
-                patient_id INT NOT NULL,
-                start_date_time TIMESTAMP NOT NULL,
-                end_date_time TIMESTAMP NOT NULL,
-                appointment_service_id INT NULL,
-                appointment_service_type_id INT NULL,
-                status VARCHAR(45) NOT NULL
-                COMMENT 'scheduled, checked in, started, completed, cancelled, missed',
-                location_id INT NULL,
-                appointment_kind VARCHAR(45) NOT NULL
-                COMMENT 'scheduled, walk in',
-                comments VARCHAR(255) NULL,
-                uuid VARCHAR(38) NOT NULL UNIQUE,
-                date_created TIMESTAMP NOT NULL,
-                creator INT NOT NULL,
-                date_changed TIMESTAMP NULL,
-                changed_by INT NULL,
-                voided SMALLINT NULL,
-                voided_by INT NULL,
-                date_voided TIMESTAMP NULL,
-                void_reason VARCHAR(255),
-                CONSTRAINT fk_patient_appointment_patient
-                FOREIGN KEY (patient_id)
-                REFERENCES patient (patient_id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE,
-                CONSTRAINT fk_patient_appointment_location
-                FOREIGN KEY (location_id)
-                REFERENCES location (location_id)
-                ON DELETE SET NULL
-                ON UPDATE CASCADE,
-                CONSTRAINT fk_patient_appointment_provider
-                FOREIGN KEY (provider_id)
-                REFERENCES provider (provider_id)
-                ON DELETE SET NULL
-                ON UPDATE CASCADE,
-                CONSTRAINT fk_patient_appointment_appointment_service
-                FOREIGN KEY (appointment_service_id)
-                REFERENCES appointment_service (appointment_service_id)
-                ON DELETE SET NULL
-                ON UPDATE CASCADE,
-                CONSTRAINT fk_patient_appointment_appointment_service_type
-                FOREIGN KEY (appointment_service_type_id)
-                REFERENCES appointment_service_type (appointment_service_type_id)
-                ON DELETE SET NULL
-                ON UPDATE CASCADE
+            patient_appointment_id SERIAL PRIMARY KEY,
+            provider_id INT NULL,
+            appointment_number VARCHAR(50) NOT NULL,
+            patient_id INT NOT NULL,
+            start_date_time TIMESTAMP NOT NULL,
+            end_date_time TIMESTAMP NOT NULL,
+            appointment_service_id INT NULL,
+            appointment_service_type_id INT NULL,
+            status VARCHAR(45) NOT NULL,
+            location_id  INT  NULL,
+            appointment_kind VARCHAR(45) NOT NULL,
+            comments VARCHAR(255) NULL,
+            uuid VARCHAR(38) NOT NULL UNIQUE,
+            date_created TIMESTAMP NOT NULL,
+            creator INT NOT NULL,
+            date_changed TIMESTAMP NULL,
+            changed_by INT NULL,
+            voided SMALLINT NULL,
+            voided_by INT NULL,
+            date_voided TIMESTAMP NULL,
+            void_reason VARCHAR(255),
+            CONSTRAINT fk_patient_appointment_patient
+            FOREIGN KEY (patient_id)
+            REFERENCES patient (patient_id)
+            ON DELETE CASCADE
+            ON UPDATE CASCADE,
+            CONSTRAINT fk_patient_appointment_location
+            FOREIGN KEY (location_id)
+            REFERENCES location (location_id)
+            ON DELETE SET NULL
+            ON UPDATE CASCADE,
+            CONSTRAINT fk_patient_appointment_provider
+            FOREIGN KEY (provider_id)
+            REFERENCES provider (provider_id)
+            ON DELETE SET NULL
+            ON UPDATE CASCADE,
+            CONSTRAINT fk_patient_appointment_appointment_service
+            FOREIGN KEY (appointment_service_id)
+            REFERENCES appointment_service (appointment_service_id)
+            ON DELETE SET NULL
+            ON UPDATE CASCADE,
+            CONSTRAINT fk_patient_appointment_appointment_service_type
+            FOREIGN KEY (appointment_service_type_id)
+            REFERENCES appointment_service_type (appointment_service_type_id)
+            ON DELETE SET NULL
+            ON UPDATE CASCADE
             );
+
+            -- Add comments for columns in PostgreSQL
+            COMMENT ON COLUMN patient_appointment.status IS 'scheduled, checked in, started, completed, cancelled, missed';
+            COMMENT ON COLUMN patient_appointment.appointment_kind IS 'scheduled, walk in';
         </sql>
     </changeSet>
 
@@ -272,9 +274,9 @@
     <changeSet id="drop_index_on_appointment_service_table-201707251710" author="Santhosh, Maharjun">
         <preConditions onFail="MARK_RAN">
             <tableExists tableName="appointment_service"/>
-            <indexExists indexName="name_UNIQUE"/>
+            <indexExists indexName="appointment_service_name_UNIQUE"/>
         </preConditions>
-        <dropIndex tableName="appointment_service" indexName="name_UNIQUE"/>
+        <dropIndex tableName="appointment_service" indexName="appointment_service_name_UNIQUE"/>
     </changeSet>
 
     <changeSet id="add_color_column_to_appointment_service_table-201707251432" author="Santhosh, Maharjun">
@@ -285,7 +287,7 @@
         </preConditions>
         <sql>
             ALTER TABLE appointment_service
-            ADD COLUMN color varchar(8) NULL AFTER duration_mins;
+            ADD COLUMN color varchar(8) NULL;
         </sql>
     </changeSet>
 
@@ -336,30 +338,29 @@
     <changeSet id="create-appointment-status-change-task-20170912101533" author="Kaustav">
         <preConditions>
             <sqlCheck expectedResult="0">
-                SELECT COUNT(*) FROM scheduler_task_config WHERE name = "Mark Appointment As Missed Or Complete Task";
+                SELECT COUNT(*) FROM scheduler_task_config WHERE name = 'Mark Appointment As Missed Or Complete Task';
             </sqlCheck>
         </preConditions>
         <sql>
-            INSERT INTO
-            scheduler_task_config(name, description, schedulable_class, start_time, start_time_pattern, repeat_interval,
+            INSERT INTO scheduler_task_config(name, description, schedulable_class, start_time, start_time_pattern, repeat_interval,
             start_on_startup, created_by, date_created, uuid)
             VALUES
             ('Mark Appointment As Missed Task', 'Mark appointments as missed task', 'org.openmrs.module.appointments.scheduler.tasks.MarkAppointmentAsMissedTask',
-            TIMESTAMP(CURDATE()), 'MM/dd/yyyy HH:mm:ss', 86400, TRUE, 1, NOW(), UUID());
+            CURRENT_DATE::TIMESTAMP, 'MM/dd/yyyy HH:mm:ss', 86400, TRUE, 1, NOW(), UUID());
 
-            INSERT INTO
-            scheduler_task_config(name, description, schedulable_class, start_time, start_time_pattern, repeat_interval,
+            INSERT INTO scheduler_task_config(name, description, schedulable_class, start_time, start_time_pattern, repeat_interval,
             start_on_startup, created_by, date_created, uuid)
             VALUES
             ('Mark Appointment As Complete Task', 'Mark appointments as complete task', 'org.openmrs.module.appointments.scheduler.tasks.MarkAppointmentAsCompleteTask',
-            TIMESTAMP(CURDATE()), 'MM/dd/yyyy HH:mm:ss', 86400, TRUE, 1, NOW(), UUID());
+            CURRENT_DATE::TIMESTAMP, 'MM/dd/yyyy HH:mm:ss', 86400, TRUE, 1, NOW(), UUID());
         </sql>
+
     </changeSet>
 
     <changeSet id="create-appointment-status-change-task-201709121099999" author="Bahmni">
         <preConditions>
             <sqlCheck expectedResult="0">
-                SELECT COUNT(*) FROM scheduler_task_config WHERE name = "Reminder of scheduled appointment";
+                SELECT COUNT(*) FROM scheduler_task_config WHERE name = 'Reminder of scheduled appointment';
             </sqlCheck>
         </preConditions>
         <sql>
@@ -368,7 +369,7 @@
                                       start_on_startup, created_by, date_created, uuid)
             VALUES
                 ('Reminder of scheduled appointment', 'Reminder of scheduled appointment', 'org.openmrs.module.appointments.scheduler.tasks.ReminderForAppointment',
-                 TIMESTAMP(CURDATE()), 'MM/dd/yyyy HH:mm:ss', 3600, TRUE, 1, NOW(), UUID());
+                 CURRENT_DATE::TIMESTAMP, 'MM/dd/yyyy HH:mm:ss', 3600, TRUE, 1, NOW(), UUID());
         </sql>
     </changeSet>
 
@@ -473,15 +474,16 @@
     <changeSet id="Create-Available-for-appointments-201712121212-2" author="Maharjun, Saikumar">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
-                SELECT count(*) FROM provider_attribute_type where name="Available for appointments";
+                SELECT count(*) FROM provider_attribute_type where name='Available for appointments';
             </sqlCheck>
         </preConditions>
         <comment>Adding provider attribute type for Appointments</comment>
         <sql>
             INSERT INTO provider_attribute_type (name, description, datatype, min_occurs, creator, date_created,
             retired, uuid)
-            VALUES ("Available for appointments","providers will be available for appointments",
-            "org.openmrs.customdatatype.datatype.BooleanDatatype", 0, 1, NOW(), 0, UUID());
+            VALUES ('Available for appointments', 'providers will be available for appointments',
+            'org.openmrs.customdatatype.datatype.BooleanDatatype', 0, 1, NOW(), FALSE, UUID());
+
         </sql>
     </changeSet>
 
@@ -738,7 +740,7 @@
         </preConditions>
         <comment> Add email address in registration page </comment>
         <sql>
-            INSERT INTO person_attribute_type (name, description, format, searchable, creator, date_created, retired, uuid) VALUES ('email', 'Email Address', 'java.lang.String', '1', 1, now(), 0, uuid());
+            INSERT INTO person_attribute_type (name, description, format, searchable, creator, date_created, retired, uuid) VALUES ('email', 'Email Address', 'java.lang.String', '1', 1, now(), FALSE, uuid());
         </sql>
     </changeSet>
 
@@ -774,13 +776,27 @@
         </preConditions>
         <comment>Enforcing BOOLEAN datatype for boolean fields</comment>
         <sql>
-            ALTER TABLE appointment_speciality MODIFY voided TINYINT(1) DEFAULT 0;
-            ALTER TABLE appointment_service MODIFY voided TINYINT(1) DEFAULT 0;
-            ALTER TABLE appointment_service_weekly_availability MODIFY voided TINYINT(1) DEFAULT 0;
-            ALTER TABLE appointment_service_type MODIFY voided TINYINT(1) DEFAULT 0;
-            ALTER TABLE patient_appointment MODIFY voided TINYINT(1) DEFAULT 0;
-            ALTER TABLE patient_appointment_audit MODIFY voided TINYINT(1) DEFAULT 0;
-            ALTER TABLE patient_appointment_provider MODIFY voided TINYINT(1) DEFAULT 0;
+            ALTER TABLE appointment_speciality ALTER COLUMN voided SET DATA TYPE SMALLINT;
+            ALTER TABLE appointment_speciality ALTER COLUMN voided SET DEFAULT 0;
+
+            ALTER TABLE appointment_service ALTER COLUMN voided SET DATA TYPE SMALLINT;
+            ALTER TABLE appointment_service ALTER COLUMN voided SET DEFAULT 0;
+
+            ALTER TABLE appointment_service_weekly_availability ALTER COLUMN voided SET DATA TYPE SMALLINT;
+            ALTER TABLE appointment_service_weekly_availability ALTER COLUMN voided SET DEFAULT 0;
+
+            ALTER TABLE appointment_service_type ALTER COLUMN voided SET DATA TYPE SMALLINT;
+            ALTER TABLE appointment_service_type ALTER COLUMN voided SET DEFAULT 0;
+
+            ALTER TABLE patient_appointment ALTER COLUMN voided SET DATA TYPE SMALLINT;
+            ALTER TABLE patient_appointment ALTER COLUMN voided SET DEFAULT 0;
+
+            ALTER TABLE patient_appointment_audit ALTER COLUMN voided SET DATA TYPE SMALLINT;
+            ALTER TABLE patient_appointment_audit ALTER COLUMN voided SET DEFAULT 0;
+
+            ALTER TABLE patient_appointment_provider ALTER COLUMN voided SET DATA TYPE SMALLINT;
+            ALTER TABLE patient_appointment_provider ALTER COLUMN voided SET DEFAULT 0;
+
         </sql>
     </changeSet>
 
@@ -806,8 +822,13 @@
         </preConditions>
         <comment>Update start and end date time of patient appointment table to be nullable</comment>
         <sql>
-            ALTER TABLE patient_appointment MODIFY start_date_time datetime default null;
-            ALTER TABLE patient_appointment MODIFY end_date_time datetime default null;
+            ALTER TABLE patient_appointment
+                ALTER COLUMN start_date_time DROP NOT NULL,
+                ALTER COLUMN start_date_time SET DEFAULT NULL;
+
+            ALTER TABLE patient_appointment
+                ALTER COLUMN end_date_time DROP NOT NULL,
+                ALTER COLUMN end_date_time SET DEFAULT NULL;
         </sql>
     </changeSet>
 
