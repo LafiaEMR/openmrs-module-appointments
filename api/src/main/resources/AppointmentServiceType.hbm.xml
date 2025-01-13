@@ -1,28 +1,41 @@
 <?xml version="1.0"?>
 <!DOCTYPE hibernate-mapping PUBLIC
         "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
-        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
 <hibernate-mapping package="org.openmrs.module.appointments.model">
     <class name="AppointmentServiceType" table="appointment_service_type" batch-size="50">
+        <!-- Changed to PostgreSQL sequence generator -->
         <id name="id" type="java.lang.Integer" column="appointment_service_type_id">
-            <generator class="native">
-                <param name="sequence">appointment_service_type_id_seq</param>
+            <generator class="sequence">
+                <param name="sequence">appointment_service_type_appointment_service_type_id_seq</param>
             </generator>
         </id>
-        <many-to-one name="appointmentServiceDefinition" column="appointment_service_id" class="AppointmentServiceDefinition" not-null="true"/>
+
+        <!-- Main Relationships -->
+        <many-to-one name="appointmentServiceDefinition"
+                     column="appointment_service_id"
+                     class="AppointmentServiceDefinition"
+                     not-null="true"/>
+
+        <!-- Basic Properties -->
         <property name="name" type="java.lang.String" column="name" not-null="true"/>
         <property name="duration" type="java.lang.Integer" column="duration_mins"/>
-        <property name="voided" type="java.lang.Boolean" column="voided" length="1"/>
 
-        <property name="dateCreated" type="java.util.Date" column="date_created" not-null="true" length="19"/>
-        <property name="dateChanged" type="java.util.Date" column="date_changed" length="19"/>
+        <!-- Changed to native PostgreSQL boolean -->
+        <property name="voided" type="boolean" column="voided"/>
+
+        <!-- Audit Timestamps - Changed to LocalDateTime -->
+        <property name="dateCreated" type="java.time.LocalDateTime" column="date_created" not-null="true"/>
+        <property name="dateChanged" type="java.time.LocalDateTime" column="date_changed"/>
         <property name="uuid" type="java.lang.String" column="uuid" length="38" unique="true"/>
 
-        <property name="dateVoided" type="java.util.Date" column="date_voided" length="19" />
-        <property name="voidReason" type="java.lang.String" column="void_reason" length="255" />
-        <many-to-one name="voidedBy" class="org.openmrs.User" column="voided_by" />
+        <!-- Voiding Information -->
+        <property name="dateVoided" type="java.time.LocalDateTime" column="date_voided"/>
+        <property name="voidReason" type="java.lang.String" column="void_reason" length="255"/>
+        <many-to-one name="voidedBy" class="org.openmrs.User" column="voided_by"/>
 
-        <many-to-one name="changedBy" class="org.openmrs.User" column="changed_by" />
+        <!-- Audit Relationships -->
+        <many-to-one name="changedBy" class="org.openmrs.User" column="changed_by"/>
         <many-to-one name="creator" class="org.openmrs.User" column="creator" not-null="true"/>
     </class>
 </hibernate-mapping>

@@ -17,17 +17,14 @@
             speciality_id SERIAL PRIMARY KEY,
             name VARCHAR(50) NOT NULL,
             date_created TIMESTAMP NOT NULL,
-            creator INT NOT NULL,
+            creator INTEGER NOT NULL,
             date_changed TIMESTAMP NULL,
-            changed_by INT NULL,
+            changed_by INTEGER NULL,
             uuid VARCHAR(38) NOT NULL,
-            voided SMALLINT NULL
+            voided BOOLEAN DEFAULT FALSE,
+            CONSTRAINT appointment_speciality_name_key UNIQUE (name),
+            CONSTRAINT appointment_speciality_uuid_key UNIQUE (uuid)
             );
-        </sql>
-
-        <!-- Add explicit unique index to maintain MySQL equivalent behavior -->
-        <sql>
-            CREATE UNIQUE INDEX name_UNIQUE ON appointment_speciality (name);
         </sql>
     </changeSet>
 
@@ -46,45 +43,38 @@
             description TEXT NULL,
             start_time TIME NULL,
             end_time TIME NULL,
-            location_id INT NULL,
-            speciality_id INT NULL,
-            max_appointments_limit INT NULL,
-            duration_mins INT NULL,
+            location_id INTEGER NULL,
+            speciality_id INTEGER NULL,
+            max_appointments_limit INTEGER NULL,
+            duration_mins INTEGER NULL,
             date_created TIMESTAMP NOT NULL,
-            creator INT NOT NULL,
+            creator INTEGER NOT NULL,
             date_changed TIMESTAMP NULL,
-            changed_by INT NULL,
-            voided SMALLINT NULL,
-            voided_by INT NULL,
+            changed_by INTEGER NULL,
+            voided BOOLEAN DEFAULT FALSE,
+            voided_by INTEGER NULL,
             date_voided TIMESTAMP NULL,
             void_reason VARCHAR(255) NULL,
-            uuid VARCHAR(38) NOT NULL UNIQUE,
-            CONSTRAINT fk_appointment_service_speciality
+            uuid VARCHAR(38) NOT NULL,
+
+            CONSTRAINT appointment_service_name_key UNIQUE (name),
+            CONSTRAINT appointment_service_uuid_key UNIQUE (uuid),
+
+            CONSTRAINT appointment_service_speciality_fk
             FOREIGN KEY (speciality_id)
             REFERENCES appointment_speciality (speciality_id)
             ON DELETE NO ACTION
             ON UPDATE NO ACTION,
-            CONSTRAINT fk_appointment_service_location
+
+            CONSTRAINT appointment_service_location_fk
             FOREIGN KEY (location_id)
             REFERENCES location (location_id)
             ON DELETE NO ACTION
             ON UPDATE NO ACTION
             );
-        </sql>
 
-        <!-- Add index for speciality_id -->
-        <sql>
-            CREATE INDEX fk_appointment_service_speciality_idx ON appointment_service (speciality_id);
-        </sql>
-
-        <!-- Add index for location_id -->
-        <sql>
-            CREATE INDEX fk_appointment_service_location_idx ON appointment_service (location_id);
-        </sql>
-
-        <!-- Add unique index for name -->
-        <sql>
-            CREATE UNIQUE INDEX appointment_service_name_UNIQUE ON appointment_service (name);
+            CREATE INDEX appointment_service_speciality_idx ON appointment_service (speciality_id);
+            CREATE INDEX appointment_service_location_idx ON appointment_service (location_id);
         </sql>
     </changeSet>
 
@@ -96,13 +86,22 @@
         </preConditions>
         <comment>Add Appointment Location Tag if not already added.</comment>
         <sql>
+            -- Enable the uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-            INSERT INTO location_tag (name, description, creator, date_created, uuid) VALUES
-            ('Appointment Location',
+            INSERT INTO location_tag (
+            name,
+            description,
+            creator,
+            date_created,
+            uuid
+            ) VALUES (
+            'Appointment Location',
             'When a user user creates a appointment service and chooses a location, they may only choose one with this tag',
             1,
-            now(),
-            uuid());
+            CURRENT_TIMESTAMP,
+            uuid_generate_v4()
+            );
         </sql>
     </changeSet>
 
@@ -115,42 +114,45 @@
 
         <sql>
             CREATE TABLE IF NOT EXISTS appointment_service_weekly_availability (
-                service_weekly_availability_id SERIAL PRIMARY KEY,
-                service_id INT NOT NULL,
-                day_of_week VARCHAR(45) NOT NULL,
-                start_time TIME NULL,
-                end_time TIME NULL,
-                max_appointments_limit INT NULL,
-                uuid VARCHAR(38) NOT NULL UNIQUE,
-                voided SMALLINT NULL,
-                voided_by INT NULL,
-                date_voided TIMESTAMP NULL,
-                void_reason VARCHAR(255),
-                date_created TIMESTAMP NOT NULL,
-                creator INT NOT NULL,
-                date_changed TIMESTAMP NULL,
-                changed_by INT NULL,
-                CONSTRAINT fk_weekly_availability_appointment_service
-                FOREIGN KEY (service_id)
-                REFERENCES appointment_service (appointment_service_id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE,
-                CONSTRAINT fk_service_creator
-                FOREIGN KEY (creator)
-                REFERENCES users (user_id)
-                ON DELETE SET NULL
-                ON UPDATE CASCADE,
-                CONSTRAINT fk_user_who_deleted_service
-                FOREIGN KEY (voided_by)
-                REFERENCES users (user_id)
-                ON DELETE SET NULL
-                ON UPDATE CASCADE
-                );
-        </sql>
+            service_weekly_availability_id SERIAL PRIMARY KEY,
+            service_id INTEGER NOT NULL,
+            day_of_week VARCHAR(45) NOT NULL,
+            start_time TIME NULL,
+            end_time TIME NULL,
+            max_appointments_limit INTEGER NULL,
+            uuid VARCHAR(38) NOT NULL,
+            voided BOOLEAN DEFAULT FALSE,
+            voided_by INTEGER NULL,
+            date_voided TIMESTAMP NULL,
+            void_reason VARCHAR(255) NULL,
+            date_created TIMESTAMP NOT NULL,
+            creator INTEGER NOT NULL,
+            date_changed TIMESTAMP NULL,
+            changed_by INTEGER NULL,
 
-        <!-- Add index for service_id -->
-        <sql>
-            CREATE INDEX fk_weekly_availability_appointment_service_idx ON appointment_service_weekly_availability (service_id);
+            CONSTRAINT appointment_service_weekly_availability_uuid_key UNIQUE (uuid),
+
+            CONSTRAINT appointment_service_weekly_availability_service_fk
+            FOREIGN KEY (service_id)
+            REFERENCES appointment_service (appointment_service_id)
+            ON DELETE CASCADE
+            ON UPDATE CASCADE,
+
+            CONSTRAINT appointment_service_weekly_availability_creator_fk
+            FOREIGN KEY (creator)
+            REFERENCES users (user_id)
+            ON DELETE SET NULL
+            ON UPDATE CASCADE,
+
+            CONSTRAINT appointment_service_weekly_availability_voided_by_fk
+            FOREIGN KEY (voided_by)
+            REFERENCES users (user_id)
+            ON DELETE SET NULL
+            ON UPDATE CASCADE
+            );
+
+            CREATE INDEX appointment_service_weekly_availability_service_idx
+            ON appointment_service_weekly_availability (service_id);
         </sql>
     </changeSet>
 
@@ -164,34 +166,32 @@
         <sql>
             CREATE TABLE IF NOT EXISTS appointment_service_type (
             appointment_service_type_id SERIAL PRIMARY KEY,
-            appointment_service_id INT NOT NULL,
+            appointment_service_id INTEGER NOT NULL,
             name VARCHAR(50) NOT NULL,
-            duration_mins INT NULL,
+            duration_mins INTEGER NULL,
             date_created TIMESTAMP NOT NULL,
-            creator INT NOT NULL,
+            creator INTEGER NOT NULL,
             date_changed TIMESTAMP NULL,
-            changed_by INT NULL,
-            voided SMALLINT NULL,
-            voided_by INT NULL,
+            changed_by INTEGER NULL,
+            voided BOOLEAN DEFAULT FALSE,
+            voided_by INTEGER NULL,
             date_voided TIMESTAMP NULL,
-            void_reason VARCHAR(255),
-            uuid VARCHAR(38) NOT NULL UNIQUE,
-            CONSTRAINT fk_appointment_service
+            void_reason VARCHAR(255) NULL,
+            uuid VARCHAR(38) NOT NULL,
+
+            CONSTRAINT appointment_service_type_uuid_key UNIQUE (uuid),
+            CONSTRAINT appointment_service_type_service_name_duration_key
+            UNIQUE (appointment_service_id, name, duration_mins),
+
+            CONSTRAINT appointment_service_type_service_fk
             FOREIGN KEY (appointment_service_id)
             REFERENCES appointment_service (appointment_service_id)
             ON DELETE CASCADE
             ON UPDATE CASCADE
             );
-        </sql>
 
-        <!-- Add index for appointment_service_id -->
-        <sql>
-            CREATE INDEX fk_appointment_service_idx ON appointment_service_type (appointment_service_id);
-        </sql>
-
-        <!-- Add unique index for service_name_dur -->
-        <sql>
-            CREATE UNIQUE INDEX service_name_dur_UNIQUE ON appointment_service_type (appointment_service_id, name, duration_mins);
+            CREATE INDEX appointment_service_type_service_idx
+            ON appointment_service_type (appointment_service_id);
         </sql>
     </changeSet>
 
@@ -205,54 +205,68 @@
         <sql>
             CREATE TABLE IF NOT EXISTS patient_appointment (
             patient_appointment_id SERIAL PRIMARY KEY,
-            provider_id INT NULL,
+            provider_id INTEGER NULL,
             appointment_number VARCHAR(50) NOT NULL,
-            patient_id INT NOT NULL,
+            patient_id INTEGER NOT NULL,
             start_date_time TIMESTAMP NOT NULL,
             end_date_time TIMESTAMP NOT NULL,
-            appointment_service_id INT NULL,
-            appointment_service_type_id INT NULL,
+            appointment_service_id INTEGER NULL,
+            appointment_service_type_id INTEGER NULL,
             status VARCHAR(45) NOT NULL,
-            location_id  INT  NULL,
+            location_id INTEGER NULL,
             appointment_kind VARCHAR(45) NOT NULL,
             comments VARCHAR(255) NULL,
-            uuid VARCHAR(38) NOT NULL UNIQUE,
+            uuid VARCHAR(38) NOT NULL,
             date_created TIMESTAMP NOT NULL,
-            creator INT NOT NULL,
+            creator INTEGER NOT NULL,
             date_changed TIMESTAMP NULL,
-            changed_by INT NULL,
-            voided SMALLINT NULL,
-            voided_by INT NULL,
+            changed_by INTEGER NULL,
+            voided BOOLEAN DEFAULT FALSE,
+            voided_by INTEGER NULL,
             date_voided TIMESTAMP NULL,
-            void_reason VARCHAR(255),
-            CONSTRAINT fk_patient_appointment_patient
+            void_reason VARCHAR(255) NULL,
+
+            CONSTRAINT patient_appointment_uuid_key UNIQUE (uuid),
+
+            CONSTRAINT patient_appointment_patient_fk
             FOREIGN KEY (patient_id)
             REFERENCES patient (patient_id)
             ON DELETE CASCADE
             ON UPDATE CASCADE,
-            CONSTRAINT fk_patient_appointment_location
+
+            CONSTRAINT patient_appointment_location_fk
             FOREIGN KEY (location_id)
             REFERENCES location (location_id)
             ON DELETE SET NULL
             ON UPDATE CASCADE,
-            CONSTRAINT fk_patient_appointment_provider
+
+            CONSTRAINT patient_appointment_provider_fk
             FOREIGN KEY (provider_id)
             REFERENCES provider (provider_id)
             ON DELETE SET NULL
             ON UPDATE CASCADE,
-            CONSTRAINT fk_patient_appointment_appointment_service
+
+            CONSTRAINT patient_appointment_service_fk
             FOREIGN KEY (appointment_service_id)
             REFERENCES appointment_service (appointment_service_id)
             ON DELETE SET NULL
             ON UPDATE CASCADE,
-            CONSTRAINT fk_patient_appointment_appointment_service_type
+
+            CONSTRAINT patient_appointment_service_type_fk
             FOREIGN KEY (appointment_service_type_id)
             REFERENCES appointment_service_type (appointment_service_type_id)
             ON DELETE SET NULL
             ON UPDATE CASCADE
             );
 
-            -- Add comments for columns in PostgreSQL
+            -- Create indexes for foreign keys
+            CREATE INDEX patient_appointment_patient_idx ON patient_appointment (patient_id);
+            CREATE INDEX patient_appointment_location_idx ON patient_appointment (location_id);
+            CREATE INDEX patient_appointment_provider_idx ON patient_appointment (provider_id);
+            CREATE INDEX patient_appointment_service_idx ON patient_appointment (appointment_service_id);
+            CREATE INDEX patient_appointment_service_type_idx ON patient_appointment (appointment_service_type_id);
+
+            -- Add column comments
             COMMENT ON COLUMN patient_appointment.status IS 'scheduled, checked in, started, completed, cancelled, missed';
             COMMENT ON COLUMN patient_appointment.appointment_kind IS 'scheduled, walk in';
         </sql>
@@ -274,9 +288,18 @@
     <changeSet id="drop_index_on_appointment_service_table-201707251710" author="Santhosh, Maharjun">
         <preConditions onFail="MARK_RAN">
             <tableExists tableName="appointment_service"/>
-            <indexExists indexName="appointment_service_name_UNIQUE"/>
+            <!-- In PostgreSQL, we check for both the index name variants since it might have been created
+                 either as a direct index or through a unique constraint -->
+            <or>
+                <indexExists indexName="appointment_service_name_unique"/>
+                <indexExists indexName="appointment_service_name_key"/>
+            </or>
         </preConditions>
-        <dropIndex tableName="appointment_service" indexName="appointment_service_name_UNIQUE"/>
+        <!-- Drop both possible index names to ensure cleanup -->
+        <sql>
+            DROP INDEX IF EXISTS appointment_service_name_unique;
+            DROP INDEX IF EXISTS appointment_service_name_key;
+        </sql>
     </changeSet>
 
     <changeSet id="add_color_column_to_appointment_service_table-201707251432" author="Santhosh, Maharjun">
@@ -287,16 +310,25 @@
         </preConditions>
         <sql>
             ALTER TABLE appointment_service
-            ADD COLUMN color varchar(8) NULL;
+            ADD COLUMN color VARCHAR(8) NULL;
+
+            COMMENT ON COLUMN appointment_service.color IS 'Stores color codes in hexadecimal format (e.g., #RRGGBB or #RRGGBBAA)';
         </sql>
     </changeSet>
 
     <changeSet id="drop_index_on_appointment_service_type_table-201708031638" author="Santhosh, Pramida">
         <preConditions onFail="MARK_RAN">
             <tableExists tableName="appointment_service_type"/>
-            <indexExists indexName="service_name_dur_UNIQUE"/>
+            <!-- Check for both possible PostgreSQL index naming conventions -->
+            <or>
+                <indexExists indexName="service_name_dur_unique"/>
+                <indexExists indexName="appointment_service_type_service_name_duration_key"/>
+            </or>
         </preConditions>
-        <dropIndex tableName="appointment_service_type" indexName="service_name_dur_UNIQUE"/>
+        <sql>
+            DROP INDEX IF EXISTS service_name_dur_unique;
+            DROP INDEX IF EXISTS appointment_service_type_service_name_duration_key;
+        </sql>
     </changeSet>
 
     <changeSet id="create-patient_appointment_audit_table-201708311030" author="Shruthi">
@@ -309,244 +341,446 @@
         <sql>
             CREATE TABLE IF NOT EXISTS patient_appointment_audit (
             patient_appointment_audit_id SERIAL PRIMARY KEY,
-            appointment_id INT NOT NULL,
-            uuid VARCHAR(38) NOT NULL UNIQUE,
+            appointment_id INTEGER NOT NULL,
+            uuid VARCHAR(38) NOT NULL,
             date_created TIMESTAMP NOT NULL,
-            creator INT NOT NULL,
+            creator INTEGER NOT NULL,
             date_changed TIMESTAMP NULL,
-            changed_by INT NULL,
-            voided SMALLINT NULL,
-            voided_by INT NULL,
+            changed_by INTEGER NULL,
+            voided BOOLEAN DEFAULT FALSE,
+            voided_by INTEGER NULL,
             date_voided TIMESTAMP NULL,
-            void_reason VARCHAR(255),
+            void_reason VARCHAR(255) NULL,
             status VARCHAR(45) NOT NULL,
-            notes VARCHAR(1000),
-            CONSTRAINT fk_patient_appointment_audit_patient_appointment
+            notes VARCHAR(1000) NULL,
+
+            CONSTRAINT patient_appointment_audit_uuid_key UNIQUE (uuid),
+
+            CONSTRAINT patient_appointment_audit_appointment_fk
             FOREIGN KEY (appointment_id)
             REFERENCES patient_appointment (patient_appointment_id)
             ON DELETE CASCADE
             ON UPDATE CASCADE
             );
-        </sql>
 
-        <!-- Add index for appointment_id -->
-        <sql>
-            CREATE INDEX fk_patient_appointment_audit_patient_appointment_idx ON patient_appointment_audit (appointment_id);
+            -- Add index for foreign key
+            CREATE INDEX patient_appointment_audit_appointment_idx
+            ON patient_appointment_audit (appointment_id);
+
+            -- Add comments
+            COMMENT ON TABLE patient_appointment_audit IS 'Stores audit trail for patient appointments';
+            COMMENT ON COLUMN patient_appointment_audit.status IS 'Current status of the appointment at time of audit';
+            COMMENT ON COLUMN patient_appointment_audit.notes IS 'Additional notes or comments about the audit entry';
         </sql>
     </changeSet>
 
     <changeSet id="create-appointment-status-change-task-20170912101533" author="Kaustav">
-        <preConditions>
+        <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
-                SELECT COUNT(*) FROM scheduler_task_config WHERE name = 'Mark Appointment As Missed Or Complete Task';
+                SELECT COUNT(*) FROM scheduler_task_config WHERE name IN (
+                'Mark Appointment As Missed Task',
+                'Mark Appointment As Complete Task'
+                );
             </sqlCheck>
         </preConditions>
         <sql>
-            INSERT INTO scheduler_task_config(name, description, schedulable_class, start_time, start_time_pattern, repeat_interval,
-            start_on_startup, created_by, date_created, uuid)
-            VALUES
-            ('Mark Appointment As Missed Task', 'Mark appointments as missed task', 'org.openmrs.module.appointments.scheduler.tasks.MarkAppointmentAsMissedTask',
-            CURRENT_DATE::TIMESTAMP, 'MM/dd/yyyy HH:mm:ss', 86400, TRUE, 1, NOW(), UUID());
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-            INSERT INTO scheduler_task_config(name, description, schedulable_class, start_time, start_time_pattern, repeat_interval,
-            start_on_startup, created_by, date_created, uuid)
-            VALUES
-            ('Mark Appointment As Complete Task', 'Mark appointments as complete task', 'org.openmrs.module.appointments.scheduler.tasks.MarkAppointmentAsCompleteTask',
-            CURRENT_DATE::TIMESTAMP, 'MM/dd/yyyy HH:mm:ss', 86400, TRUE, 1, NOW(), UUID());
+            INSERT INTO scheduler_task_config (
+            name,
+            description,
+            schedulable_class,
+            start_time,
+            start_time_pattern,
+            repeat_interval,
+            start_on_startup,
+            created_by,
+            date_created,
+            uuid
+            ) VALUES
+            (
+            'Mark Appointment As Missed Task',
+            'Mark appointments as missed task',
+            'org.openmrs.module.appointments.scheduler.tasks.MarkAppointmentAsMissedTask',
+            CURRENT_TIMESTAMP,
+            'MM/dd/yyyy HH:mm:ss',
+            86400,
+            TRUE,
+            1,
+            CURRENT_TIMESTAMP,
+            uuid_generate_v4()
+            ),
+            (
+            'Mark Appointment As Complete Task',
+            'Mark appointments as complete task',
+            'org.openmrs.module.appointments.scheduler.tasks.MarkAppointmentAsCompleteTask',
+            CURRENT_TIMESTAMP,
+            'MM/dd/yyyy HH:mm:ss',
+            86400,
+            TRUE,
+            1,
+            CURRENT_TIMESTAMP,
+            uuid_generate_v4()
+            );
         </sql>
-
     </changeSet>
 
     <changeSet id="create-appointment-status-change-task-201709121099999" author="Bahmni">
-        <preConditions>
+        <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
-                SELECT COUNT(*) FROM scheduler_task_config WHERE name = 'Reminder of scheduled appointment';
+                SELECT COUNT(*) FROM scheduler_task_config
+                WHERE name = 'Reminder of scheduled appointment';
             </sqlCheck>
         </preConditions>
         <sql>
-            INSERT INTO
-                scheduler_task_config(name, description, schedulable_class, start_time, start_time_pattern, repeat_interval,
-                                      start_on_startup, created_by, date_created, uuid)
-            VALUES
-                ('Reminder of scheduled appointment', 'Reminder of scheduled appointment', 'org.openmrs.module.appointments.scheduler.tasks.ReminderForAppointment',
-                 CURRENT_DATE::TIMESTAMP, 'MM/dd/yyyy HH:mm:ss', 3600, TRUE, 1, NOW(), UUID());
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO scheduler_task_config (
+            name,
+            description,
+            schedulable_class,
+            start_time,
+            start_time_pattern,
+            repeat_interval,
+            start_on_startup,
+            created_by,
+            date_created,
+            uuid
+            ) VALUES (
+            'Reminder of scheduled appointment',
+            'Reminder of scheduled appointment',
+            'org.openmrs.module.appointments.scheduler.tasks.ReminderForAppointment',
+            CURRENT_TIMESTAMP,
+            'MM/dd/yyyy HH:mm:ss',
+            3600,
+            TRUE,
+            1,
+            CURRENT_TIMESTAMP,
+            uuid_generate_v4()
+            );
         </sql>
     </changeSet>
 
-    <changeSet id="Create-privilege-view-appointments-201709201603"  author="Santhosh, Pramida">
+    <changeSet id="Create-privilege-view-appointments-201709201603" author="Santhosh, Pramida">
         <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="0">select count(*) from privilege where privilege='View Appointments'</sqlCheck>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM privilege WHERE privilege = 'View Appointments';
+            </sqlCheck>
         </preConditions>
         <comment>Adding privilege for viewing Appointments</comment>
         <sql>
-            INSERT INTO privilege (privilege, description, uuid) VALUES ('View Appointments', 'Able to view Appointments in Appointments module', uuid());
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO privilege (
+            privilege,
+            description,
+            uuid
+            ) VALUES (
+            'View Appointments',
+            'Able to view Appointments in Appointments module',
+            uuid_generate_v4()
+            );
         </sql>
     </changeSet>
 
-    <changeSet id="Create-privilege-manage-appointments-201709201605"  author="Santhosh, Pramida">
+    <changeSet id="Create-privilege-manage-appointments-201709201605" author="Santhosh, Pramida">
         <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="0">select count(*) from privilege where privilege='Manage Appointments'</sqlCheck>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM privilege WHERE privilege = 'Manage Appointments';
+            </sqlCheck>
         </preConditions>
         <comment>Adding privilege for managing Appointments</comment>
         <sql>
-            INSERT INTO privilege (privilege, description, uuid) VALUES ('Manage Appointments', 'Able to manage Appointments in Appointments module', uuid());
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO privilege (
+            privilege,
+            description,
+            uuid
+            ) VALUES (
+            'Manage Appointments',
+            'Able to manage Appointments in Appointments module',
+            uuid_generate_v4()
+            );
         </sql>
     </changeSet>
 
-    <changeSet id="Create-privilege-view-appointment-services-201709201606"  author="Santhosh, Pramida">
+    <changeSet id="Create-privilege-view-appointment-services-201709201606" author="Santhosh, Pramida">
         <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="0">select count(*) from privilege where privilege='View Appointment Services'</sqlCheck>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM privilege WHERE privilege = 'View Appointment Services';
+            </sqlCheck>
         </preConditions>
         <comment>Adding privilege to view Services in Appointments module</comment>
         <sql>
-            INSERT INTO privilege (privilege, description, uuid) VALUES ('View Appointment Services', 'Able to view Services in Appointments module', uuid());
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO privilege (
+            privilege,
+            description,
+            uuid
+            ) VALUES (
+            'View Appointment Services',
+            'Able to view Services in Appointments module',
+            uuid_generate_v4()
+            );
         </sql>
     </changeSet>
 
-    <changeSet id="Create-privilege-manage-appointment-services-201709201607"  author="Santhosh, Pramida">
+    <changeSet id="Create-privilege-manage-appointment-services-201709201607" author="Santhosh, Pramida">
         <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="0">select count(*) from privilege where privilege='Manage Appointment Services'</sqlCheck>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM privilege WHERE privilege = 'Manage Appointment Services';
+            </sqlCheck>
         </preConditions>
         <comment>Adding privilege to manage Services in Appointments module</comment>
         <sql>
-            INSERT INTO privilege (privilege, description, uuid) VALUES ('Manage Appointment Services', 'Able to manage Services in Appointments module', uuid());
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO privilege (
+            privilege,
+            description,
+            uuid
+            ) VALUES (
+            'Manage Appointment Services',
+            'Able to manage Services in Appointments module',
+            uuid_generate_v4()
+            );
         </sql>
     </changeSet>
 
-    <changeSet id="Create-privilege-manage-appointment-specialities-201709201608"  author="Bailly, Rurangirwa">
+    <changeSet id="Create-privilege-manage-appointment-specialities-201709201608" author="Bailly, Rurangirwa">
         <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="0">select count(*) from privilege where privilege='Manage Appointment Specialities'</sqlCheck>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM privilege WHERE privilege = 'Manage Appointment Specialities';
+            </sqlCheck>
         </preConditions>
         <comment>Adding privilege to manage Specialities in Appointments module</comment>
         <sql>
-            INSERT INTO privilege (privilege, description, uuid) VALUES ('Manage Appointment Specialities', 'Able to manage Specialities in Appointments module', uuid());
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO privilege (
+            privilege,
+            description,
+            uuid
+            ) VALUES (
+            'Manage Appointment Specialities',
+            'Able to manage Specialities in Appointments module',
+            uuid_generate_v4()
+            );
         </sql>
     </changeSet>
 
     <changeSet id="global-property-past-appointments-sql-09022021" author="Maharjun, Shireesha" runOnChange="true">
         <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="0">select count(*) from global_property where property='bahmni.sqlGet.pastAppointments'</sqlCheck>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM global_property WHERE property = 'bahmni.sqlGet.pastAppointments';
+            </sqlCheck>
         </preConditions>
         <comment>Adding query to fetch past appointments for patient</comment>
-        <sqlFile path="patientPastAppointments.sql"/>
+        <sqlFile path="patientPastAppointments.sql" encoding="UTF-8" />
     </changeSet>
 
     <changeSet id="global-property-past-appointments-sql-update" author="Himabindu" runOnChange="true">
         <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="1">select count(*) from global_property where property='bahmni.sqlGet.pastAppointments'</sqlCheck>
+            <sqlCheck expectedResult="1">
+                SELECT COUNT(*) FROM global_property WHERE property = 'bahmni.sqlGet.pastAppointments';
+            </sqlCheck>
         </preConditions>
         <comment>Updating query to fetch past appointments for patient</comment>
-        <sqlFile path="patientPastAppointments_v2.sql"/>
+        <sqlFile path="patientPastAppointments_v2.sql" encoding="UTF-8" />
     </changeSet>
 
+    <!-- Past Appointments v3 -->
     <changeSet id="global-property-past-appointments-sql-202402211800" author="Bahmni" runOnChange="true">
         <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="1">select count(*) from global_property where property='bahmni.sqlGet.pastAppointments'</sqlCheck>
+            <sqlCheck expectedResult="1">
+                SELECT COUNT(*) FROM global_property WHERE property = 'bahmni.sqlGet.pastAppointments';
+            </sqlCheck>
         </preConditions>
         <comment>Updating query to fetch past appointments for patient</comment>
-        <sqlFile path="patientPastAppointments_v3.sql"/>
+        <sqlFile path="patientPastAppointments_v3.sql" encoding="UTF-8" />
     </changeSet>
 
+    <!-- Initial Upcoming Appointments -->
     <changeSet id="global-property-upcoming-appointments-sql-09022021" author="Maharjun, Shireesha" runOnChange="true">
         <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="0">select count(*) from global_property where property='bahmni.sqlGet.upComingAppointments'</sqlCheck>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM global_property WHERE property = 'bahmni.sqlGet.upComingAppointments';
+            </sqlCheck>
         </preConditions>
         <comment>Adding query to fetch upcoming appointments for patient</comment>
-        <sqlFile path="patientUpcomingAppointments.sql"/>
+        <sqlFile path="patientUpcomingAppointments.sql" encoding="UTF-8" />
     </changeSet>
 
+    <!-- Upcoming Appointments v2 -->
     <changeSet id="global-property-upcoming-appointments-sql-update" author="Shankar, Mahesh" runOnChange="true">
         <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="1">select count(*) from global_property where property='bahmni.sqlGet.upComingAppointments'</sqlCheck>
+            <sqlCheck expectedResult="1">
+                SELECT COUNT(*) FROM global_property WHERE property = 'bahmni.sqlGet.upComingAppointments';
+            </sqlCheck>
         </preConditions>
         <comment>Updating query to fetch upcoming appointments for patient</comment>
-        <sqlFile path="patientUpcomingAppointments_v2.sql"/>
+        <sqlFile path="patientUpcomingAppointments_v2.sql" encoding="UTF-8" />
     </changeSet>
 
+    <!-- Upcoming Appointments v3 -->
     <changeSet id="global-property-upcoming-appointments-sql-202402211805" author="Bahmni" runOnChange="true">
         <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="1">select count(*) from global_property where property='bahmni.sqlGet.upComingAppointments'</sqlCheck>
+            <sqlCheck expectedResult="1">
+                SELECT COUNT(*) FROM global_property WHERE property = 'bahmni.sqlGet.upComingAppointments';
+            </sqlCheck>
         </preConditions>
         <comment>Updating query to fetch upcoming appointments for patient</comment>
-        <sqlFile path="patientUpcomingAppointments_v3.sql"/>
+        <sqlFile path="patientUpcomingAppointments_v3.sql" encoding="UTF-8" />
     </changeSet>
 
+    <!-- Provider Attribute Type Changeset -->
     <changeSet id="Create-Available-for-appointments-201712121212-2" author="Maharjun, Saikumar">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
-                SELECT count(*) FROM provider_attribute_type where name='Available for appointments';
+                SELECT COUNT(*) FROM provider_attribute_type WHERE name = 'Available for appointments';
             </sqlCheck>
         </preConditions>
         <comment>Adding provider attribute type for Appointments</comment>
         <sql>
-            INSERT INTO provider_attribute_type (name, description, datatype, min_occurs, creator, date_created,
-            retired, uuid)
-            VALUES ('Available for appointments', 'providers will be available for appointments',
-            'org.openmrs.customdatatype.datatype.BooleanDatatype', 0, 1, NOW(), FALSE, UUID());
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+            INSERT INTO provider_attribute_type (
+            name,
+            description,
+            datatype,
+            min_occurs,
+            creator,
+            date_created,
+            retired,
+            uuid
+            ) VALUES (
+            'Available for appointments',
+            'providers will be available for appointments',
+            'org.openmrs.customdatatype.datatype.BooleanDatatype',
+            0,
+            1,
+            CURRENT_TIMESTAMP,
+            FALSE,
+            uuid_generate_v4()
+            );
         </sql>
     </changeSet>
 
+    <!-- Global Property Changeset -->
     <changeSet id="201806261146" author="Suman">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
-                SELECT COUNT(*) FROM global_property where property = 'atomfeed.publish.eventsForAppointmentService';
+                SELECT COUNT(*) FROM global_property WHERE property = 'atomfeed.publish.eventsForAppointmentService';
             </sqlCheck>
         </preConditions>
         <comment>Adding global property to act as switch for raising appointment service events</comment>
-        <insert tableName="global_property">
-            <column name="property" value="atomfeed.publish.eventsForAppointmentService"/>
-            <column name="property_value" value="true"/>
-            <column name="uuid" valueComputed="UUID()"/>
-            <column name="description" value="If set true, events related to appointment service changes are published"/>
-        </insert>
+        <sql>
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO global_property (
+            property,
+            property_value,
+            uuid,
+            description
+            ) VALUES (
+            'atomfeed.publish.eventsForAppointmentService',
+            'true',
+            uuid_generate_v4(),
+            'If set true, events related to appointment service changes are published'
+            );
+        </sql>
     </changeSet>
 
+    <!-- URL Pattern for Appointment Service -->
     <changeSet id="201806261149" author="Suman">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
-                SELECT COUNT(*) FROM global_property where property = 'atomfeed.event.urlPatternForAppointmentService';
+                SELECT COUNT(*) FROM global_property WHERE property = 'atomfeed.event.urlPatternForAppointmentService';
             </sqlCheck>
         </preConditions>
         <comment>Adding global property to specify the URL pattern for published appointment service events</comment>
-        <insert tableName="global_property">
-            <column name="property" value="atomfeed.event.urlPatternForAppointmentService"/>
-            <column name="property_value" value="/openmrs/ws/rest/v1/appointment-services/{uuid}"/>
-            <column name="uuid" valueComputed="UUID()"/>
-            <column name="description" value="URL pattern to use for published appointment service events. Default is /openmrs/ws/rest/v1/appointment-services/{uuid}. If you change default value, please add your custom implementation for the given URL"/>
-        </insert>
+        <sql>
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO global_property (
+            property,
+            property_value,
+            uuid,
+            description
+            ) VALUES (
+            'atomfeed.event.urlPatternForAppointmentService',
+            '/openmrs/ws/rest/v1/appointment-services/{uuid}',
+            uuid_generate_v4(),
+            'URL pattern to use for published appointment service events. Default is /openmrs/ws/rest/v1/appointment-services/{uuid}. If you change default value, please add your custom implementation for the given URL'
+            );
+        </sql>
     </changeSet>
 
+    <!-- Events for Appointments Switch -->
     <changeSet id="201806261612" author="Suman">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
-                SELECT COUNT(*) FROM global_property where property = 'atomfeed.publish.eventsForAppointments';
+                SELECT COUNT(*) FROM global_property WHERE property = 'atomfeed.publish.eventsForAppointments';
             </sqlCheck>
         </preConditions>
         <comment>Adding global property to act as switch for raising appointment events</comment>
-        <insert tableName="global_property">
-            <column name="property" value="atomfeed.publish.eventsForAppointments"/>
-            <column name="property_value" value="true"/>
-            <column name="uuid" valueComputed="UUID()"/>
-            <column name="description" value="If set true, events related to appointment changes are published"/>
-        </insert>
+        <sql>
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO global_property (
+            property,
+            property_value,
+            uuid,
+            description
+            ) VALUES (
+            'atomfeed.publish.eventsForAppointments',
+            'true',
+            uuid_generate_v4(),
+            'If set true, events related to appointment changes are published'
+            );
+        </sql>
     </changeSet>
 
+    <!-- URL Pattern for Appointments -->
     <changeSet id="201806261614" author="Suman">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
-                SELECT COUNT(*) FROM global_property where property = 'atomfeed.event.urlPatternForAppointments';
+                SELECT COUNT(*) FROM global_property WHERE property = 'atomfeed.event.urlPatternForAppointments';
             </sqlCheck>
         </preConditions>
         <comment>Adding global property to specify the URL pattern for published appointment events</comment>
-        <insert tableName="global_property">
-            <column name="property" value="atomfeed.event.urlPatternForAppointments"/>
-            <column name="property_value" value="/openmrs/ws/rest/v1/appointments/{uuid}"/>
-            <column name="uuid" valueComputed="UUID()"/>
-            <column name="description" value="URL pattern to use for published appointment events. Default is /openmrs/ws/rest/v1/appointments/{uuid}. If you change default value, please add your custom implementation for the given URL"/>
-        </insert>
+        <sql>
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO global_property (
+            property,
+            property_value,
+            uuid,
+            description
+            ) VALUES (
+            'atomfeed.event.urlPatternForAppointments',
+            '/openmrs/ws/rest/v1/appointments/{uuid}',
+            uuid_generate_v4(),
+            'URL pattern to use for published appointment events. Default is /openmrs/ws/rest/v1/appointments/{uuid}. If you change default value, please add your custom implementation for the given URL'
+            );
+        </sql>
     </changeSet>
 
+    <!-- Patient Appointment Provider Table Creation -->
     <changeSet id="patient_appointment_provider_table_201807251345" author="angshu">
         <preConditions onFail="MARK_RAN">
             <not>
@@ -557,42 +791,71 @@
         <sql>
             CREATE TABLE IF NOT EXISTS patient_appointment_provider (
             patient_appointment_provider_id SERIAL PRIMARY KEY,
-            patient_appointment_id INT NOT NULL,
-            provider_id INT NOT NULL,
+            patient_appointment_id INTEGER NOT NULL,
+            provider_id INTEGER NOT NULL,
             response VARCHAR(32) DEFAULT NULL,
-            comments VARCHAR(1000),
+            comments VARCHAR(1000) NULL,
             date_created TIMESTAMP NOT NULL,
-            creator INT NOT NULL,
+            creator INTEGER NOT NULL,
             date_changed TIMESTAMP NULL,
-            changed_by INT NULL,
-            voided SMALLINT NULL,
-            voided_by INT NULL,
+            changed_by INTEGER NULL,
+            voided BOOLEAN DEFAULT FALSE,
+            voided_by INTEGER NULL,
             date_voided TIMESTAMP NULL,
-            void_reason VARCHAR(255),
-            uuid VARCHAR(38) NOT NULL UNIQUE,
-            CONSTRAINT fk_patient_appointment_provider_patient_appointment
+            void_reason VARCHAR(255) NULL,
+            uuid VARCHAR(38) NOT NULL,
+
+            CONSTRAINT patient_appointment_provider_uuid_key UNIQUE (uuid),
+
+            CONSTRAINT patient_appointment_provider_appointment_fk
             FOREIGN KEY (patient_appointment_id)
             REFERENCES patient_appointment (patient_appointment_id)
             ON DELETE CASCADE
             ON UPDATE CASCADE,
-            CONSTRAINT fk_patient_appointment_provider_provider
+
+            CONSTRAINT patient_appointment_provider_provider_fk
             FOREIGN KEY (provider_id)
             REFERENCES provider (provider_id)
             ON DELETE SET NULL
             ON UPDATE CASCADE
             );
+
+            -- Create indexes for foreign keys
+            CREATE INDEX patient_appointment_provider_appointment_idx
+            ON patient_appointment_provider (patient_appointment_id);
+            CREATE INDEX patient_appointment_provider_provider_idx
+            ON patient_appointment_provider (provider_id);
         </sql>
     </changeSet>
 
+    <!-- Patient Appointment Provider Data Migration -->
     <changeSet id="patient_appointment_provider_migration_201807281845" author="angshu">
         <comment>Migrating appointment provider to appointment_provider table</comment>
         <sql>
-            insert into patient_appointment_provider (patient_appointment_id, provider_id, response, date_created, creator, uuid)
-            select a.patient_appointment_id, a.provider_id, 'ACCEPTED', a.date_created, a.creator, uuid()
-            from patient_appointment a where a.provider_id is not null;
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO patient_appointment_provider (
+            patient_appointment_id,
+            provider_id,
+            response,
+            date_created,
+            creator,
+            uuid
+            )
+            SELECT
+            a.patient_appointment_id,
+            a.provider_id,
+            'ACCEPTED',
+            a.date_created,
+            a.creator,
+            uuid_generate_v4()
+            FROM patient_appointment a
+            WHERE a.provider_id IS NOT NULL;
         </sql>
     </changeSet>
 
+    <!-- Manage Own Appointments Privilege -->
     <changeSet id="201808241255" author="Saikumar, Neha">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
@@ -600,13 +863,23 @@
             </sqlCheck>
         </preConditions>
         <comment>Add Manage Own Appointments privilege to manage own appointments only.</comment>
-        <insert tableName="privilege">
-            <column name="privilege" value="Manage Own Appointments"/>
-            <column name="description" value="With this privilege, providers can book/edit appointments only for themselves."/>
-            <column name="uuid" valueComputed="UUID()"/>
-        </insert>
+        <sql>
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO privilege (
+            privilege,
+            description,
+            uuid
+            ) VALUES (
+            'Manage Own Appointments',
+            'With this privilege, providers can book/edit appointments only for themselves.',
+            uuid_generate_v4()
+            );
+        </sql>
     </changeSet>
 
+    <!-- Reset Appointment Status Privilege -->
     <changeSet id="reset_appointment_status_privilege_201808241255" author="Saikumar, Sowmika">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
@@ -614,25 +887,47 @@
             </sqlCheck>
         </preConditions>
         <comment>Add Reset Appointment Status privilege to reset appointments from any status to scheduled.</comment>
-        <insert tableName="privilege">
-            <column name="privilege" value="Reset Appointment Status"/>
-            <column name="description" value="With this privilege, users can reset appointments from any status to scheduled."/>
-            <column name="uuid" valueComputed="UUID()"/>
-        </insert>
+        <sql>
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO privilege (
+            privilege,
+            description,
+            uuid
+            ) VALUES (
+            'Reset Appointment Status',
+            'With this privilege, users can reset appointments from any status to scheduled.',
+            uuid_generate_v4()
+            );
+        </sql>
     </changeSet>
 
+    <!-- OpenMRS Running Global Property -->
     <changeSet id="201910091141" author="Dubey">
         <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="0">select count(*) from global_property where property='bahmni.appointments.runningOnOpenMRS'</sqlCheck>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM global_property WHERE property = 'bahmni.appointments.runningOnOpenMRS';
+            </sqlCheck>
         </preConditions>
         <comment>Adding 'bahmni.appointments.runningOnOpenMRS' global property to figure out instance type</comment>
-        <insert tableName="global_property">
-            <column name="property" value="bahmni.appointments.runningOnOpenMRS"/>
-            <column name="uuid" valueComputed="UUID()"/>
-            <column name="description" value="If set to yes, the appointments ui will run independent of bahmni core"/>
-        </insert>
+        <sql>
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO global_property (
+            property,
+            uuid,
+            description
+            ) VALUES (
+            'bahmni.appointments.runningOnOpenMRS',
+            uuid_generate_v4(),
+            'If set to yes, the appointments ui will run independent of bahmni core'
+            );
+        </sql>
     </changeSet>
 
+    <!-- Recurring Time Table Creation -->
     <changeSet id="patient_appointment_recurring_time_migration_201905131216" author="Vinay, Alekhya">
         <preConditions onFail="MARK_RAN">
             <not>
@@ -644,14 +939,26 @@
             CREATE TABLE IF NOT EXISTS patient_appointment_recurring_time (
             patient_appointment_timings_id SERIAL PRIMARY KEY,
             recurrence_type VARCHAR(20) NOT NULL,
-            period INT NOT NULL,
-            frequency INT,
-            end_date TIMESTAMP,
-            days_of_week VARCHAR(100)
+            period INTEGER NOT NULL,
+            frequency INTEGER NULL,
+            end_date TIMESTAMP NULL,
+            days_of_week VARCHAR(100) NULL,
+
+            CONSTRAINT check_recurrence_type CHECK (
+            recurrence_type IN ('DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY')
+            )
             );
+
+            -- Add comments for documentation
+            COMMENT ON TABLE patient_appointment_recurring_time IS 'Stores recurring appointment patterns and timing information';
+            COMMENT ON COLUMN patient_appointment_recurring_time.recurrence_type IS 'Type of recurrence: DAILY, WEEKLY, MONTHLY, YEARLY';
+            COMMENT ON COLUMN patient_appointment_recurring_time.period IS 'Number of units between recurrences';
+            COMMENT ON COLUMN patient_appointment_recurring_time.frequency IS 'Number of occurrences, if specified';
+            COMMENT ON COLUMN patient_appointment_recurring_time.days_of_week IS 'For weekly recurrence, stores days of week as comma-separated list';
         </sql>
     </changeSet>
 
+    <!-- Occurrence Table Creation -->
     <changeSet id="patient_appointment_occurrence_migration_201905131217" author="Vinay, Alekhya">
         <preConditions onFail="MARK_RAN">
             <not>
@@ -660,25 +967,39 @@
         </preConditions>
 
         <sql>
-            CREATE TABLE patient_appointment_occurrence (
-                patient_appointment_timings_id INT NOT NULL,
-                patient_appointment_id INT NOT NULL,
-                PRIMARY KEY (patient_appointment_timings_id, patient_appointment_id),
-                CONSTRAINT fk_patient_appointment_occurrence_patient_appointment_timings
-                FOREIGN KEY (patient_appointment_timings_id)
-                REFERENCES patient_appointment_recurring_time (patient_appointment_timings_id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE,
-                CONSTRAINT fk_patient_appointment_occurrence_patient_appointment
-                FOREIGN KEY (patient_appointment_id)
-                REFERENCES patient_appointment (patient_appointment_id)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
-                );
+            CREATE TABLE IF NOT EXISTS patient_appointment_occurrence (
+            patient_appointment_timings_id INTEGER NOT NULL,
+            patient_appointment_id INTEGER NOT NULL,
+
+            CONSTRAINT patient_appointment_occurrence_pkey
+            PRIMARY KEY (patient_appointment_timings_id, patient_appointment_id),
+
+            CONSTRAINT patient_appointment_occurrence_timings_fk
+            FOREIGN KEY (patient_appointment_timings_id)
+            REFERENCES patient_appointment_recurring_time (patient_appointment_timings_id)
+            ON DELETE CASCADE
+            ON UPDATE CASCADE,
+
+            CONSTRAINT patient_appointment_occurrence_appointment_fk
+            FOREIGN KEY (patient_appointment_id)
+            REFERENCES patient_appointment (patient_appointment_id)
+            ON DELETE CASCADE
+            ON UPDATE CASCADE
+            );
+
+            -- Create indexes for foreign keys
+            CREATE INDEX patient_appointment_occurrence_timings_idx
+            ON patient_appointment_occurrence (patient_appointment_timings_id);
+            CREATE INDEX patient_appointment_occurrence_appointment_idx
+            ON patient_appointment_occurrence (patient_appointment_id);
+
+            -- Add table comment
+            COMMENT ON TABLE patient_appointment_occurrence IS 'Maps recurring appointment patterns to actual appointments';
         </sql>
     </changeSet>
 
 
+    <!-- Add Related Appointment ID -->
     <changeSet id="add_related_appointment_id_patient_appointment_20190718" author="Sneha, Alekhya">
         <preConditions onFail="MARK_RAN">
             <not>
@@ -687,22 +1008,37 @@
         </preConditions>
         <sql>
             ALTER TABLE patient_appointment
-            ADD COLUMN related_appointment_id INT NULL,
-            ADD CONSTRAINT patient_appointment_id_fk FOREIGN KEY(related_appointment_id) REFERENCES patient_appointment(patient_appointment_id);
-        </sql>
+            ADD COLUMN related_appointment_id INTEGER NULL,
+            ADD CONSTRAINT patient_appointment_related_appointment_fk
+            FOREIGN KEY (related_appointment_id)
+            REFERENCES patient_appointment (patient_appointment_id);
 
+            -- Create index for the foreign key
+            CREATE INDEX patient_appointment_related_appointment_idx
+            ON patient_appointment (related_appointment_id);
+
+            COMMENT ON COLUMN patient_appointment.related_appointment_id
+            IS 'References another appointment that this appointment is related to';
+        </sql>
     </changeSet>
+
+    <!-- Add Initial Appointment Status -->
     <changeSet id="add_initial_appointment_status_appointment_service" author="Dubey">
         <preConditions onFail="MARK_RAN">
             <not>
                 <columnExists columnName="initial_appointment_status" tableName="appointment_service"/>
             </not>
         </preConditions>
-        <addColumn tableName="appointment_service">
-            <column name="initial_appointment_status" type="varchar(45)"/>
-        </addColumn>
+        <sql>
+            ALTER TABLE appointment_service
+            ADD COLUMN initial_appointment_status VARCHAR(45) NULL;
+
+            COMMENT ON COLUMN appointment_service.initial_appointment_status
+            IS 'Default status for newly created appointments in this service';
+        </sql>
     </changeSet>
 
+    <!-- Add Invite Providers Privilege -->
     <changeSet id="202001021618" author="Sukreet">
         <preConditions onFail="MARK_RAN">
             <sqlCheck expectedResult="0">
@@ -710,40 +1046,83 @@
             </sqlCheck>
         </preConditions>
         <comment>Add Schedule Appointments privilege to manage own appointments only.</comment>
-        <insert tableName="privilege">
-            <column name="privilege" value="Appointments: Invite Providers"/>
-            <column name="description" value="With this privilege, providers can invite others to an appointment"/>
-            <column name="uuid" valueComputed="UUID()"/>
-        </insert>
-    </changeSet>
-
-    <changeSet id="202001031712" author="Sowmika, Bindu">
-        <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="0">
-                SELECT COUNT(*) FROM global_property where property = 'atomfeed.event.urlPatternForRecurringAppointments';
-            </sqlCheck>
-        </preConditions>
-        <comment>Adding global property to specify the URL pattern for published appointment events</comment>
-        <insert tableName="global_property">
-            <column name="property" value="atomfeed.event.urlPatternForRecurringAppointments"/>
-            <column name="property_value" value="/openmrs/ws/rest/v1/recurring-appointments?uuid={uuid}"/>
-            <column name="uuid" valueComputed="UUID()"/>
-            <column name="description" value="URL pattern to use for published Recurring appointment events. Default is /openmrs/ws/rest/v1/recurring-appointments?uuid={uuid}. If you change default value, please add your custom implementation for the given URL"/>
-        </insert>
-    </changeSet>
-
-    <changeSet id="default-202009011116" author="Deedee Lee">
-        <preConditions onFail="MARK_RAN">
-            <sqlCheck expectedResult="0">
-                SELECT COUNT(*) FROM person_attribute_type where name = 'email';
-            </sqlCheck>
-        </preConditions>
-        <comment> Add email address in registration page </comment>
         <sql>
-            INSERT INTO person_attribute_type (name, description, format, searchable, creator, date_created, retired, uuid) VALUES ('email', 'Email Address', 'java.lang.String', '1', 1, now(), FALSE, uuid());
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO privilege (
+            privilege,
+            description,
+            uuid
+            ) VALUES (
+            'Appointments: Invite Providers',
+            'With this privilege, providers can invite others to an appointment',
+            uuid_generate_v4()
+            );
         </sql>
     </changeSet>
 
+    <!-- URL Pattern for Recurring Appointments -->
+    <changeSet id="202001031712" author="Sowmika, Bindu">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM global_property WHERE property = 'atomfeed.event.urlPatternForRecurringAppointments';
+            </sqlCheck>
+        </preConditions>
+        <comment>Adding global property to specify the URL pattern for published appointment events</comment>
+        <sql>
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO global_property (
+            property,
+            property_value,
+            uuid,
+            description
+            ) VALUES (
+            'atomfeed.event.urlPatternForRecurringAppointments',
+            '/openmrs/ws/rest/v1/recurring-appointments?uuid={uuid}',
+            uuid_generate_v4(),
+            'URL pattern to use for published Recurring appointment events. Default is /openmrs/ws/rest/v1/recurring-appointments?uuid={uuid}. If you change default value, please add your custom implementation for the given URL'
+            );
+        </sql>
+    </changeSet>
+
+    <!-- Add Email Person Attribute Type -->
+    <changeSet id="default-202009011116" author="Deedee Lee">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM person_attribute_type WHERE name = 'email';
+            </sqlCheck>
+        </preConditions>
+        <comment>Add email address in registration page</comment>
+        <sql>
+            -- Enable uuid-ossp extension if not already enabled
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            INSERT INTO person_attribute_type (
+            name,
+            description,
+            format,
+            searchable,
+            creator,
+            date_created,
+            retired,
+            uuid
+            ) VALUES (
+            'email',
+            'Email Address',
+            'java.lang.String',
+            TRUE,
+            1,
+            CURRENT_TIMESTAMP,
+            FALSE,
+            uuid_generate_v4()
+            );
+        </sql>
+    </changeSet>
+
+    <!-- Add Telehealth Video Link Column -->
     <changeSet id="create-column-tele_health_video_link-202106211857" author="Angshu">
         <preConditions onFail="MARK_RAN">
             <tableExists tableName="patient_appointment" />
@@ -751,19 +1130,26 @@
                 <columnExists tableName="patient_appointment" columnName="tele_health_video_link" />
             </not>
         </preConditions>
-        <addColumn tableName="patient_appointment">
-            <column name="tele_health_video_link" type="varchar(255)">
-            </column>
-        </addColumn>
+        <sql>
+            ALTER TABLE patient_appointment
+            ADD COLUMN tele_health_video_link VARCHAR(255) NULL;
+
+            COMMENT ON COLUMN patient_appointment.tele_health_video_link
+            IS 'URL or identifier for telehealth video conference';
+        </sql>
     </changeSet>
 
+    <!-- Drop Teleconsultation Column -->
     <changeSet id="drop-column-appointment-teleconsultation-202107061351" author="Angshu">
         <preConditions onFail="MARK_RAN">
             <columnExists tableName="patient_appointment" columnName="teleconsultation" />
         </preConditions>
-        <dropColumn  tableName="patient_appointment" columnName="teleconsultation"/>
+        <sql>
+            ALTER TABLE patient_appointment DROP COLUMN teleconsultation;
+        </sql>
     </changeSet>
 
+    <!-- Convert Voided Columns to Boolean -->
     <changeSet id="appointments_sql_diff" author="Nathan Ruhanga">
         <preConditions onFail="MARK_RAN">
             <columnExists tableName="appointment_speciality" columnName="voided"/>
@@ -774,32 +1160,46 @@
             <columnExists tableName="patient_appointment_audit" columnName="voided"/>
             <columnExists tableName="patient_appointment_provider" columnName="voided"/>
         </preConditions>
-        <comment>Enforcing BOOLEAN datatype for boolean fields</comment>
+        <comment>Converting voided columns to proper PostgreSQL boolean type</comment>
         <sql>
-            ALTER TABLE appointment_speciality ALTER COLUMN voided SET DATA TYPE SMALLINT;
-            ALTER TABLE appointment_speciality ALTER COLUMN voided SET DEFAULT 0;
+            -- Convert appointment_speciality
+            ALTER TABLE appointment_speciality
+            ALTER COLUMN voided SET DATA TYPE BOOLEAN USING CASE WHEN voided = 0 THEN FALSE ELSE TRUE END,
+            ALTER COLUMN voided SET DEFAULT FALSE;
 
-            ALTER TABLE appointment_service ALTER COLUMN voided SET DATA TYPE SMALLINT;
-            ALTER TABLE appointment_service ALTER COLUMN voided SET DEFAULT 0;
+            -- Convert appointment_service
+            ALTER TABLE appointment_service
+            ALTER COLUMN voided SET DATA TYPE BOOLEAN USING CASE WHEN voided = 0 THEN FALSE ELSE TRUE END,
+            ALTER COLUMN voided SET DEFAULT FALSE;
 
-            ALTER TABLE appointment_service_weekly_availability ALTER COLUMN voided SET DATA TYPE SMALLINT;
-            ALTER TABLE appointment_service_weekly_availability ALTER COLUMN voided SET DEFAULT 0;
+            -- Convert appointment_service_weekly_availability
+            ALTER TABLE appointment_service_weekly_availability
+            ALTER COLUMN voided SET DATA TYPE BOOLEAN USING CASE WHEN voided = 0 THEN FALSE ELSE TRUE END,
+            ALTER COLUMN voided SET DEFAULT FALSE;
 
-            ALTER TABLE appointment_service_type ALTER COLUMN voided SET DATA TYPE SMALLINT;
-            ALTER TABLE appointment_service_type ALTER COLUMN voided SET DEFAULT 0;
+            -- Convert appointment_service_type
+            ALTER TABLE appointment_service_type
+            ALTER COLUMN voided SET DATA TYPE BOOLEAN USING CASE WHEN voided = 0 THEN FALSE ELSE TRUE END,
+            ALTER COLUMN voided SET DEFAULT FALSE;
 
-            ALTER TABLE patient_appointment ALTER COLUMN voided SET DATA TYPE SMALLINT;
-            ALTER TABLE patient_appointment ALTER COLUMN voided SET DEFAULT 0;
+            -- Convert patient_appointment
+            ALTER TABLE patient_appointment
+            ALTER COLUMN voided SET DATA TYPE BOOLEAN USING CASE WHEN voided = 0 THEN FALSE ELSE TRUE END,
+            ALTER COLUMN voided SET DEFAULT FALSE;
 
-            ALTER TABLE patient_appointment_audit ALTER COLUMN voided SET DATA TYPE SMALLINT;
-            ALTER TABLE patient_appointment_audit ALTER COLUMN voided SET DEFAULT 0;
+            -- Convert patient_appointment_audit
+            ALTER TABLE patient_appointment_audit
+            ALTER COLUMN voided SET DATA TYPE BOOLEAN USING CASE WHEN voided = 0 THEN FALSE ELSE TRUE END,
+            ALTER COLUMN voided SET DEFAULT FALSE;
 
-            ALTER TABLE patient_appointment_provider ALTER COLUMN voided SET DATA TYPE SMALLINT;
-            ALTER TABLE patient_appointment_provider ALTER COLUMN voided SET DEFAULT 0;
-
+            -- Convert patient_appointment_provider
+            ALTER TABLE patient_appointment_provider
+            ALTER COLUMN voided SET DATA TYPE BOOLEAN USING CASE WHEN voided = 0 THEN FALSE ELSE TRUE END,
+            ALTER COLUMN voided SET DEFAULT FALSE;
         </sql>
     </changeSet>
 
+    <!-- Add Priority Column -->
     <changeSet id="create-column-priority-for-appointment-202304191703" author="Kavitha, Umair">
         <preConditions onFail="MARK_RAN">
             <tableExists tableName="patient_appointment" />
@@ -807,13 +1207,21 @@
                 <columnExists tableName="patient_appointment" columnName="priority" />
             </not>
         </preConditions>
-        <addColumn tableName="patient_appointment">
-            <column name="priority" type="varchar(45)">
-                <constraints nullable="true"/>
-            </column>
-        </addColumn>
+        <sql>
+            ALTER TABLE patient_appointment
+            ADD COLUMN priority VARCHAR(45) NULL;
+
+            COMMENT ON COLUMN patient_appointment.priority
+            IS 'Priority level for the appointment';
+
+            -- Optional: Add check constraint for valid priority values
+            ALTER TABLE patient_appointment
+            ADD CONSTRAINT patient_appointment_priority_check
+            CHECK (priority IN ('HIGH', 'MEDIUM', 'LOW') OR priority IS NULL);
+        </sql>
     </changeSet>
 
+    <!-- Make Appointment Times Nullable -->
     <changeSet id="remove-not-null-constraint-202402271826" author="Kavitha, Umair">
         <preConditions onFail="MARK_RAN">
             <tableExists tableName="patient_appointment" />
@@ -823,15 +1231,18 @@
         <comment>Update start and end date time of patient appointment table to be nullable</comment>
         <sql>
             ALTER TABLE patient_appointment
-                ALTER COLUMN start_date_time DROP NOT NULL,
-                ALTER COLUMN start_date_time SET DEFAULT NULL;
+            ALTER COLUMN start_date_time DROP NOT NULL,
+            ALTER COLUMN end_date_time DROP NOT NULL;
 
-            ALTER TABLE patient_appointment
-                ALTER COLUMN end_date_time DROP NOT NULL,
-                ALTER COLUMN end_date_time SET DEFAULT NULL;
+            -- Add explanatory comments
+            COMMENT ON COLUMN patient_appointment.start_date_time
+            IS 'Start time of the appointment. Can be null for appointments without a fixed time.';
+            COMMENT ON COLUMN patient_appointment.end_date_time
+            IS 'End time of the appointment. Can be null for appointments without a fixed time.';
         </sql>
     </changeSet>
 
+    <!-- Create Appointment-Encounter Map Table -->
     <changeSet id="add-patient-appointment-fulfilling-encounter-map-table-20240501" author="mgoodrich">
         <preConditions onFail="MARK_RAN">
             <not>
@@ -839,36 +1250,63 @@
             </not>
         </preConditions>
         <comment>Add the map table to link appointments to fulfilling encounter</comment>
-        <createTable tableName="patient_appointment_fulfilling_encounter_map">
-            <column name="patient_appointment_id" type="int">
-                <constraints nullable="false" />
-            </column>
-            <column name="fulfilling_encounter_id" type="int">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
-        <addPrimaryKey tableName="patient_appointment_fulfilling_encounter_map" columnNames="patient_appointment_id,fulfilling_encounter_id" constraintName="primary_key_for_patient_appointment_fulfilling_encounter_map"/>
-        <addForeignKeyConstraint constraintName="patient_appointment_fulfilling_encounter_map_patient_appointment" baseTableName="patient_appointment_fulfilling_encounter_map" baseColumnNames="patient_appointment_id" referencedTableName="patient_appointment" referencedColumnNames="patient_appointment_id"/>
-        <addForeignKeyConstraint constraintName="patient_appointment_fulfilling_encounter_map_encounter" baseTableName="patient_appointment_fulfilling_encounter_map" baseColumnNames="fulfilling_encounter_id" referencedTableName="encounter" referencedColumnNames="encounter_id"/>
+        <sql>
+            CREATE TABLE patient_appointment_fulfilling_encounter_map (
+            patient_appointment_id INTEGER NOT NULL,
+            fulfilling_encounter_id INTEGER NOT NULL,
+
+            CONSTRAINT patient_appointment_fulfilling_encounter_map_pkey
+            PRIMARY KEY (patient_appointment_id, fulfilling_encounter_id),
+
+            CONSTRAINT patient_appointment_fulfilling_encounter_map_appointment_fk
+            FOREIGN KEY (patient_appointment_id)
+            REFERENCES patient_appointment (patient_appointment_id),
+
+            CONSTRAINT patient_appointment_fulfilling_encounter_map_encounter_fk
+            FOREIGN KEY (fulfilling_encounter_id)
+            REFERENCES encounter (encounter_id)
+            );
+
+            -- Create indexes for foreign keys
+            CREATE INDEX patient_appointment_fulfilling_encounter_map_appointment_idx
+            ON patient_appointment_fulfilling_encounter_map (patient_appointment_id);
+            CREATE INDEX patient_appointment_fulfilling_encounter_map_encounter_idx
+            ON patient_appointment_fulfilling_encounter_map (fulfilling_encounter_id);
+
+            -- Add table comment
+            COMMENT ON TABLE patient_appointment_fulfilling_encounter_map
+            IS 'Maps appointments to their fulfilling encounters';
+            COMMENT ON COLUMN patient_appointment_fulfilling_encounter_map.patient_appointment_id
+            IS 'Reference to the appointment';
+            COMMENT ON COLUMN patient_appointment_fulfilling_encounter_map.fulfilling_encounter_id
+            IS 'Reference to the encounter that fulfills this appointment';
+        </sql>
     </changeSet>
 
+    <!-- Add Appointment Scheduled Date Column -->
     <changeSet id="add_date_appointment_scheduled_20240528" author="aojwang">
         <preConditions onFail="MARK_RAN">
             <not>
                 <columnExists columnName="date_appointment_scheduled" tableName="patient_appointment"/>
             </not>
         </preConditions>
-        <comment>add a column to record the date an appointment was issued</comment>
-        <addColumn tableName="patient_appointment">
-            <column name="date_appointment_scheduled" type="DATETIME">
-            </column>
-        </addColumn>
+        <comment>Add a column to record the date an appointment was issued</comment>
+        <sql>
+            ALTER TABLE patient_appointment
+            ADD COLUMN date_appointment_scheduled TIMESTAMP NULL;
+
+            COMMENT ON COLUMN patient_appointment.date_appointment_scheduled
+            IS 'The date and time when the appointment was initially scheduled';
+        </sql>
     </changeSet>
 
+    <!-- Fill Appointment Scheduled Date -->
     <changeSet id="fill_date_appointment_scheduled_20240603" author="aojwang">
         <comment>Default the date an appointment was issued to the appointment date_created</comment>
         <sql>
-            update patient_appointment set date_appointment_scheduled = date_created where date_appointment_scheduled is null;
+            UPDATE patient_appointment
+            SET date_appointment_scheduled = date_created
+            WHERE date_appointment_scheduled IS NULL;
         </sql>
     </changeSet>
 

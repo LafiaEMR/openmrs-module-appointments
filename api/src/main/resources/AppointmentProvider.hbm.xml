@@ -1,16 +1,21 @@
 <?xml version="1.0"?>
 <!DOCTYPE hibernate-mapping PUBLIC
         "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
-        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
 <hibernate-mapping package="org.openmrs.module.appointments.model">
     <class name="AppointmentProvider" table="patient_appointment_provider" batch-size="50">
+        <!-- Fixed sequence name and changed to PostgreSQL sequence generator -->
         <id name="appointmentProviderId" type="java.lang.Integer" column="patient_appointment_provider_id">
-            <generator class="native">
-                <param name="sequence">patient_appointment_audit_id_seq</param>
+            <generator class="sequence">
+                <param name="sequence">patient_appointment_provider_patient_appointment_provider_id_seq</param>
             </generator>
         </id>
-        <many-to-one name="appointment" class="Appointment" column="patient_appointment_id" />
-        <many-to-one name="provider" class="org.openmrs.Provider" column="provider_id" />
+
+        <!-- Relationships -->
+        <many-to-one name="appointment" class="Appointment" column="patient_appointment_id"/>
+        <many-to-one name="provider" class="org.openmrs.Provider" column="provider_id"/>
+
+        <!-- Basic properties -->
         <property name="response" column="response">
             <type name="org.hibernate.type.EnumType">
                 <param name="enumClass">org.openmrs.module.appointments.model.AppointmentProviderResponse</param>
@@ -19,20 +24,20 @@
         </property>
         <property name="comments" type="java.lang.String" column="comments" length="1000"/>
 
-
-
-        <property name="dateCreated" type="java.util.Date" column="date_created" length="19" />
+        <!-- Audit fields -->
+        <property name="dateCreated" type="java.time.LocalDateTime" column="date_created"/>
         <many-to-one name="creator" class="org.openmrs.User" column="creator" not-null="true"/>
 
-        <property name="dateChanged" type="java.util.Date" column="date_changed" length="19" />
-        <many-to-one name="changedBy" class="org.openmrs.User" column="changed_by" />
+        <property name="dateChanged" type="java.time.LocalDateTime" column="date_changed"/>
+        <many-to-one name="changedBy" class="org.openmrs.User" column="changed_by"/>
 
-        <property name="voided" type="java.lang.Boolean" column="voided" length="1"/>
-        <property name="dateVoided" type="java.util.Date" column="date_voided" length="19" />
-        <property name="voidReason" type="java.lang.String" column="void_reason" length="255" />
-        <many-to-one name="voidedBy" class="org.openmrs.User" column="voided_by" />
+        <!-- Voiding related fields -->
+        <property name="voided" type="boolean" column="voided"/>
+        <property name="dateVoided" type="java.time.LocalDateTime" column="date_voided"/>
+        <property name="voidReason" type="java.lang.String" column="void_reason" length="255"/>
+        <many-to-one name="voidedBy" class="org.openmrs.User" column="voided_by"/>
 
+        <!-- Unique identifier -->
         <property name="uuid" type="java.lang.String" column="uuid" length="38" unique="true"/>
-
     </class>
 </hibernate-mapping>

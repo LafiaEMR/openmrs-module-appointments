@@ -1,21 +1,30 @@
 <?xml version="1.0"?>
 <!DOCTYPE hibernate-mapping PUBLIC
         "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
-        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
 <hibernate-mapping package="org.openmrs.module.appointments.model">
     <class name="AppointmentServiceDefinition" table="appointment_service" batch-size="50">
+        <!-- Changed to PostgreSQL sequence generator -->
         <id name="appointmentServiceId" type="java.lang.Integer" column="appointment_service_id">
-            <generator class="native">
-                <param name="sequence">appointment_service_id_seq</param>
+            <generator class="sequence">
+                <param name="sequence">appointment_service_appointment_service_id_seq</param>
             </generator>
         </id>
+
+        <!-- Basic properties -->
         <property name="name" type="java.lang.String" column="name" not-null="true"/>
         <property name="description" type="java.lang.String" column="description"/>
-        <property name="startTime" type="java.sql.Time" column="start_time"/>
-        <property name="endTime" type="java.sql.Time" column="end_time"/>
+
+        <!-- Time fields using LocalTime for better PostgreSQL time handling -->
+        <property name="startTime" type="java.time.LocalTime" column="start_time"/>
+        <property name="endTime" type="java.time.LocalTime" column="end_time"/>
+
+        <!-- Numeric properties -->
         <property name="maxAppointmentsLimit" type="java.lang.Integer" column="max_appointments_limit"/>
         <property name="durationMins" type="java.lang.Integer" column="duration_mins"/>
-        <property name="color" type="java.lang.String" column="color" length="8" not-null="false" />
+        <property name="color" type="java.lang.String" column="color" length="8"/>
+
+        <!-- Enum type -->
         <property name="initialAppointmentStatus" column="initial_appointment_status">
             <type name="org.hibernate.type.EnumType">
                 <param name="enumClass">org.openmrs.module.appointments.model.AppointmentStatus</param>
@@ -23,24 +32,32 @@
             </type>
         </property>
 
-        <property name="dateCreated" type="java.util.Date" column="date_created"/>
-        <property name="dateChanged" type="java.util.Date" column="date_changed"/>
+        <!-- Audit timestamps using LocalDateTime -->
+        <property name="dateCreated" type="java.time.LocalDateTime" column="date_created"/>
+        <property name="dateChanged" type="java.time.LocalDateTime" column="date_changed"/>
         <property name="uuid" type="java.lang.String" column="uuid" length="38" unique="true"/>
 
-        <property name="voided" type="java.lang.Boolean" column="voided" length="1"/>
-        <property name="dateVoided" type="java.util.Date" column="date_voided" length="19" />
-        <property name="voidReason" type="java.lang.String" column="void_reason" length="255" />
-        <many-to-one name="voidedBy" class="org.openmrs.User" column="voided_by" />
+        <!-- Voiding related fields -->
+        <property name="voided" type="boolean" column="voided"/>
+        <property name="dateVoided" type="java.time.LocalDateTime" column="date_voided"/>
+        <property name="voidReason" type="java.lang.String" column="void_reason" length="255"/>
+        <many-to-one name="voidedBy" class="org.openmrs.User" column="voided_by"/>
 
-        <many-to-one name="changedBy" class="org.openmrs.User" column="changed_by" />
+        <!-- Relationships -->
+        <many-to-one name="changedBy" class="org.openmrs.User" column="changed_by"/>
         <many-to-one name="creator" class="org.openmrs.User" column="creator" not-null="true"/>
         <many-to-one name="location" class="org.openmrs.Location" column="location_id"/>
         <many-to-one name="speciality" class="org.openmrs.module.appointments.model.Speciality" column="speciality_id"/>
-        <set name="weeklyAvailability" lazy="false" inverse="true" batch-size="100" cascade="all-delete-orphan" order-by="voided asc"  access="field">
-            <key column="service_id" />
-            <one-to-many class="org.openmrs.module.appointments.model.ServiceWeeklyAvailability" />
+
+        <!-- Collections -->
+        <set name="weeklyAvailability" lazy="false" inverse="true" batch-size="100"
+             cascade="all-delete-orphan" order-by="voided asc" access="field">
+            <key column="service_id"/>
+            <one-to-many class="org.openmrs.module.appointments.model.ServiceWeeklyAvailability"/>
         </set>
-        <set name="serviceTypes" inverse="true" cascade="all-delete-orphan" lazy="false" access="field">
+
+        <set name="serviceTypes" inverse="true" cascade="all-delete-orphan"
+             lazy="false" access="field">
             <key column="appointment_service_id"/>
             <one-to-many class="org.openmrs.module.appointments.model.AppointmentServiceType"/>
         </set>
