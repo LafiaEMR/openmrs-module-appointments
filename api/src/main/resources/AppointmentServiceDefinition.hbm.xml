@@ -5,9 +5,10 @@
 <hibernate-mapping package="org.openmrs.module.appointments.model">
     <class name="AppointmentServiceDefinition" table="appointment_service" batch-size="50">
         <id name="appointmentServiceId" type="java.lang.Integer" column="appointment_service_id">
-            <generator class="sequence">
-                <param name="sequence">appointment_service_id_seq</param>
-            </generator>
+<!--            <generator class="sequence">-->
+<!--                <param name="sequence">appointment_service_id_seq</param>-->
+<!--            </generator>-->
+            <generator class="identity"/>
         </id>
         <property name="name" type="java.lang.String" column="name" not-null="true"/>
         <property name="description" type="java.lang.String" column="description"/>
