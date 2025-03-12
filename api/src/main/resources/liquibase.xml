@@ -27,7 +27,7 @@
 
         <!-- Add explicit unique index to maintain MySQL equivalent behavior -->
         <sql>
-            CREATE UNIQUE INDEX name_UNIQUE ON appointment_speciality (name);
+            CREATE UNIQUE INDEX name_unique ON appointment_speciality (name);
         </sql>
     </changeSet>
 
@@ -84,7 +84,7 @@
 
         <!-- Add unique index for name -->
         <sql>
-            CREATE UNIQUE INDEX appointment_service_name_UNIQUE ON appointment_service (name);
+            CREATE UNIQUE INDEX appointment_service_name_unique ON appointment_service (name);
         </sql>
     </changeSet>
 
@@ -191,7 +191,7 @@
 
         <!-- Add unique index for service_name_dur -->
         <sql>
-            CREATE UNIQUE INDEX service_name_dur_UNIQUE ON appointment_service_type (appointment_service_id, name, duration_mins);
+            CREATE UNIQUE INDEX service_name_dur_unique ON appointment_service_type (appointment_service_id, name, duration_mins);
         </sql>
     </changeSet>
 
@@ -274,9 +274,9 @@
     <changeSet id="drop_index_on_appointment_service_table-201707251710" author="Santhosh, Maharjun">
         <preConditions onFail="MARK_RAN">
             <tableExists tableName="appointment_service"/>
-            <indexExists indexName="appointment_service_name_UNIQUE"/>
+            <indexExists indexName="appointment_service_name_unique"/>
         </preConditions>
-        <dropIndex tableName="appointment_service" indexName="appointment_service_name_UNIQUE"/>
+        <dropIndex tableName="appointment_service" indexName="appointment_service_name_unique"/>
     </changeSet>
 
     <changeSet id="add_color_column_to_appointment_service_table-201707251432" author="Santhosh, Maharjun">
@@ -294,9 +294,9 @@
     <changeSet id="drop_index_on_appointment_service_type_table-201708031638" author="Santhosh, Pramida">
         <preConditions onFail="MARK_RAN">
             <tableExists tableName="appointment_service_type"/>
-            <indexExists indexName="service_name_dur_UNIQUE"/>
+            <indexExists indexName="service_name_dur_unique"/>
         </preConditions>
-        <dropIndex tableName="appointment_service_type" indexName="service_name_dur_UNIQUE"/>
+        <dropIndex tableName="appointment_service_type" indexName="service_name_dur_unique"/>
     </changeSet>
 
     <changeSet id="create-patient_appointment_audit_table-201708311030" author="Shruthi">

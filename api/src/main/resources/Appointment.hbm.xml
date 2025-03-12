@@ -5,7 +5,7 @@
 <hibernate-mapping package="org.openmrs.module.appointments.model">
     <class name="Appointment" table="patient_appointment" batch-size="50">
         <id name="appointmentId" type="java.lang.Integer" column="patient_appointment_id">
-            <generator class="native">
+            <generator class="sequence">
                 <param name="sequence">patient_appointment_id_seq</param>
             </generator>
         </id>
