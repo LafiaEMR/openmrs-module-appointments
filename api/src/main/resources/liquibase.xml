@@ -740,7 +740,7 @@
         </preConditions>
         <comment> Add email address in registration page </comment>
         <sql>
-            INSERT INTO person_attribute_type (name, description, format, searchable, creator, date_created, retired, uuid) VALUES ('email', 'Email Address', 'java.lang.String', '1', 1, now(), FALSE, uuid());
+            INSERT INTO person_attribute_type (name, description, format, searchable, creator, date_created, retired, uuid, sort_weight) VALUES ('email', 'Email Address', 'java.lang.String', '1', 1, now(), FALSE, uuid(), 7.0);
         </sql>
     </changeSet>
 
